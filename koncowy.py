@@ -28,7 +28,7 @@ def wyznacz_macierz_kowariancji(stopy_zwrotu: pd.DataFrame) -> pd.DataFrame:
 spolki = ['AMZN', 'ORCL', 'NVDA', 'HIMS', 'AAPL', 'JNJ', 'KO', 'TLT', 'AGG', 'GLD']
 print("Ściągam dane z giełdy dla 10 aktywów...")
 
-dane = yf.download(spolki, start='2020-01-01', end='2022-05-01')['Close']
+dane = yf.download(spolki, start='2024-01-01', end='2026-05-01')['Close']
 dzienne_zwroty = dane.pct_change().dropna()
 
 print("Licze oczekiwane zwroty i macierz kowariancji w skali rocznej...")
@@ -38,7 +38,7 @@ macierz_kowariancji = wyznacz_macierz_kowariancji(dzienne_zwroty)
 # =========================================================
 # 2. SYMULACJA MONTE CARLO
 # =========================================================
-liczba_prob = 50000
+liczba_prob = 500000
 liczba_aktywow = len(spolki)
 print(f"Odpalam Monte Carlo dla {liczba_prob} portfeli. To może chwilę zająć...")
 
