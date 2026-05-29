@@ -34,12 +34,12 @@ dzienne_zwroty = dane.pct_change().dropna()
 
 print("Licze oczekiwane zwroty i macierz kowariancji w skali rocznej...")
 roczne_zwroty = dzienne_zwroty.mean() * 252
-macierz_kowariancji = wyznacz_macierz_kowariancji(dzienne_zwroty)
+macierz_kowariancji = wyznacz_macierz_kowariancji(dzienne_zwroty) * 252
 
 # =========================================================
 # 2. SYMULACJA MONTE CARLO
 # =========================================================
-liczba_prob = 50000
+liczba_prob = 500000
 liczba_aktywow = len(spolki)
 print(f"Odpalam Monte Carlo dla {liczba_prob} portfeli. To moze chwile zajac...")
 

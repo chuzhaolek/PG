@@ -50,8 +50,8 @@ zapisane_wagi = np.zeros((liczba_prob, liczba_aktywow))
 Sigma_np = macierz_kowariancji.to_numpy()
 
 for i in range(liczba_prob):
-    # Losowanie i normalizacja wag
-    wagi = np.random.random(liczba_aktywow)
+    # Losowanie wag z rozkladu normalnego (dopuszcza ujemne = krotka sprzedaz)
+    wagi = np.random.randn(liczba_aktywow)
     wagi = wagi / np.sum(wagi)
 
     # Algebra Liniowa
@@ -76,50 +76,64 @@ print("\n--- ZNALEZIONO OPTYMALNY PORTFEL (Max Sharpe) ---")
 print(f"Oczekiwany zysk roczny: {najlepszy_zwrot * 100:.2f}%")
 print(f"Ryzyko (zmienność):     {najlepsze_ryzyko * 100:.2f}%")
 print(f"Wskaźnik Sharpe'a:      {wyniki_sharpe[najlepszy_indeks]:.4f}")
+print("\nPodzial kapitalu:")
+for i in range(liczba_aktywow):
+    print(f"    {spolki[i]:<5}: {najlepsze_wagi[i] * 100:>6.2f}%")
 
 # =========================================================
 # 4. WIZUALIZACJA - ZBIORCZY DASHBOARD
 # =========================================================
 print("\nGeneruje zbiorczy panel z wykresami (Dashboard)...")
 
-# Tworzymy główną figurę o odpowiednich proporcjach
-fig = plt.figure(figsize=(16, 12))
-
-# Definiujemy siatkę (GridSpec) - 2 wiersze, 2 kolumny
-# Górny wiersz jest szerszy (height_ratios=[1.5, 1]) żeby główny wykres był dobrze widoczny
+fig = plt.figure(figsize=(18, 14))
 gs = fig.add_gridspec(2, 2, height_ratios=[1.5, 1])
 
-# --- WYKRES 1: Granica Efektywna (Zajmuje cały górny wiersz) ---
+# --- WYKRES 1: Granica Efektywna (caly gorny wiersz) ---
 ax1 = fig.add_subplot(gs[0, :])
-scatter = ax1.scatter(wyniki_ryzyko * 100, wyniki_zwroty * 100, c=wyniki_sharpe, cmap='viridis', marker='o', s=5,
-                      alpha=0.3)
+
+scatter = ax1.scatter(
+    wyniki_ryzyko * 100, wyniki_zwroty * 100,
+    c=wyniki_sharpe, cmap='viridis', marker='o', s=5, alpha=0.3
+)
 fig.colorbar(scatter, ax=ax1, label="Wskaźnik Sharpe'a (Zysk / Ryzyko)")
-ax1.scatter(najlepsze_ryzyko * 100, najlepszy_zwrot * 100, color='red', marker='*', s=400,
-            label='Złoty Środek (Max Sharpe)')
-ax1.set_title('Symulacja Monte Carlo - Granica Efektywna Markowitza', fontsize=16, fontweight='bold')
+
+ax1.scatter(
+    najlepsze_ryzyko * 100, najlepszy_zwrot * 100,
+    color='gold', marker='*', s=500, edgecolors='black', linewidths=1.5,
+    label=f'Złoty Środek (Max Sharpe = {wyniki_sharpe[najlepszy_indeks]:.3f})', zorder=6
+)
+
+# Pojedyncze aktywa (szare kropki z etykietami)
+mu_np = roczne_zwroty.to_numpy()
+for i, ticker in enumerate(spolki):
+    sigma_i = np.sqrt(Sigma_np[i, i]) * 100
+    mu_i = mu_np[i] * 100
+    ax1.scatter(sigma_i, mu_i, color='gray', s=40, zorder=4)
+    ax1.annotate(ticker, (sigma_i, mu_i), textcoords='offset points',
+                 xytext=(5, 5), fontsize=8, color='gray')
+
+ax1.set_title('Granica Efektywna Markowitza\nSymulacja Monte Carlo', fontsize=16, fontweight='bold')
 ax1.set_xlabel('Ryzyko (Odchylenie standardowe) [%]', fontsize=12)
 ax1.set_ylabel('Oczekiwany Zwrot [%]', fontsize=12)
-ax1.legend(loc='upper left')
+ax1.legend(loc='upper left', fontsize=10)
 ax1.grid(True, linestyle='--', alpha=0.5)
 
-# --- WYKRES 2: Mapa Cieplna (Dolny wiersz, lewa strona) ---
+# --- WYKRES 2: Mapa Cieplna (dolny lewy) ---
 ax2 = fig.add_subplot(gs[1, 0])
-sns.heatmap(dzienne_zwroty.corr(), annot=True, cmap='coolwarm', fmt='.2f', vmin=-1, vmax=1, ax=ax2,
-            annot_kws={"size": 9})
+sns.heatmap(dzienne_zwroty.corr(), annot=True, cmap='coolwarm', fmt='.2f',
+            vmin=-1, vmax=1, ax=ax2, annot_kws={"size": 9})
 ax2.set_title('Macierz Korelacji', fontsize=14)
 
-# --- WYKRES 3: Wykres Kołowy (Dolny wiersz, prawa strona) ---
+# --- WYKRES 3: Wykres Kolowy (dolny prawy) ---
 ax3 = fig.add_subplot(gs[1, 1])
-ax3.pie(najlepsze_wagi, labels=spolki, autopct='%1.1f%%', startangle=140, textprops={'fontsize': 10})
-ax3.set_title('Struktura Złotego Portfela', fontsize=14)
+ax3.pie(np.abs(najlepsze_wagi), labels=spolki, autopct='%1.1f%%', startangle=140,
+        textprops={'fontsize': 10})
+ax3.set_title('Struktura Optymalnego Portfela', fontsize=14)
 
-# Automatyczne dopasowanie marginesów, żeby nic na siebie nie nachodziło
 plt.tight_layout()
 
-# Zapisujemy cały wygenerowany kokpit do jednego pliku obrazu w wysokiej rozdzielczości
 nazwa_pliku = 'projekt_awad_dashboard.png'
 plt.savefig(nazwa_pliku, dpi=300, bbox_inches='tight', facecolor='white')
-print(f"\nGotowe! Wszystkie wykresy zapisano do jednego pliku: {nazwa_pliku}")
+print(f"\nGotowe! Wszystkie wykresy zapisano do: {nazwa_pliku}")
 
-# Wyświetlenie na ekranie
-plt.show()
+plt.show()
