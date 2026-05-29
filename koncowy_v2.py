@@ -36,10 +36,13 @@ print("Licze oczekiwane zwroty i macierz kowariancji w skali rocznej...")
 roczne_zwroty = dzienne_zwroty.mean() * 252
 macierz_kowariancji = wyznacz_macierz_kowariancji(dzienne_zwroty) * 252
 
+# Stopa wolna od ryzyka (roczna)
+r_f = 0.042
+
 # =========================================================
 # 2. SYMULACJA MONTE CARLO
 # =========================================================
-liczba_prob = 500000
+liczba_prob = 50000
 liczba_aktywow = len(spolki)
 print(f"Odpalam Monte Carlo dla {liczba_prob} portfeli. To moze chwile zajac...")
 
@@ -62,7 +65,7 @@ for i in range(liczba_prob):
     # Zapis
     wyniki_zwroty[i] = zwrot_portfela
     wyniki_ryzyko[i] = ryzyko_portfela
-    wyniki_sharpe[i] = zwrot_portfela / ryzyko_portfela
+    wyniki_sharpe[i] = (zwrot_portfela - r_f) / ryzyko_portfela
     zapisane_wagi[i, :] = wagi
 
 # =========================================================
@@ -123,7 +126,7 @@ def ujemny_sharpe(w, mu_vec, Sigma):
     """Ujemny Sharpe (minimalizujemy => maksymalizacja Sharpe)."""
     ret = w @ mu_vec
     vol = np.sqrt(w @ Sigma @ w)
-    return -ret / vol
+    return -(ret - r_f) / vol
 
 
 # --- Portfel o MAKSYMALNYM SHARPE (tangent portfolio) ---
@@ -148,7 +151,7 @@ wynik_slsqp = minimize(
 wagi_opt = wynik_slsqp.x
 zwrot_opt = wagi_opt @ mu_np
 ryzyko_opt = np.sqrt(wagi_opt @ Sigma_np @ wagi_opt)
-sharpe_opt = zwrot_opt / ryzyko_opt
+sharpe_opt = (zwrot_opt - r_f) / ryzyko_opt
 
 print(f"Oczekiwany zysk roczny: {zwrot_opt * 100:.2f}%")
 print(f"Ryzyko (zmiennosc):     {ryzyko_opt * 100:.2f}%")
@@ -216,8 +219,8 @@ print(f"\n  SLSQP daje Sharpe wyzszy o {roznica:+.2f}% wzgledem MC.")
 # =========================================================
 print("\nGeneruje zbiorczy panel z wykresami (Dashboard)...")
 
-fig = plt.figure(figsize=(22, 14))
-gs = fig.add_gridspec(2, 3, height_ratios=[1.5, 1])
+fig = plt.figure(figsize=(24, 16))
+gs = fig.add_gridspec(2, 3, height_ratios=[1.4, 1], hspace=0.35, wspace=0.35)
 
 # --- WYKRES 1: Granica Efektywna (caly gorny wiersz) ---
 ax1 = fig.add_subplot(gs[0, :])
@@ -252,7 +255,6 @@ ax1.scatter(
 
 ax1.set_title('Granica Efektywna Markowitza\nMonte Carlo (50 000) + Optymalizacja SLSQP (KKT)',
               fontsize=16, fontweight='bold')
-ax1.set_xlabel('Ryzyko (Odchylenie standardowe) [%]', fontsize=12)
 ax1.set_ylabel('Oczekiwany Zwrot [%]', fontsize=12)
 ax1.legend(loc='upper left', fontsize=10)
 ax1.grid(True, linestyle='--', alpha=0.5)
@@ -260,8 +262,11 @@ ax1.grid(True, linestyle='--', alpha=0.5)
 # --- WYKRES 2: Mapa Cieplna (dolny lewy) ---
 ax2 = fig.add_subplot(gs[1, 0])
 sns.heatmap(dzienne_zwroty.corr(), annot=True, cmap='coolwarm', fmt='.2f',
-            vmin=-1, vmax=1, ax=ax2, annot_kws={"size": 8})
-ax2.set_title('Macierz Korelacji', fontsize=14)
+            vmin=-1, vmax=1, ax=ax2, annot_kws={"size": 7},
+            cbar_kws={"shrink": 0.8})
+ax2.set_title('Macierz Korelacji', fontsize=14, pad=12)
+ax2.tick_params(axis='x', rotation=45, labelsize=8)
+ax2.tick_params(axis='y', rotation=0, labelsize=8)
 
 # --- WYKRES 3: Wykres Kolowy wag Monte Carlo (dolny srodkowy) ---
 ax3 = fig.add_subplot(gs[1, 1])
@@ -272,11 +277,16 @@ pie_wagi_mc = najlepsze_wagi[maska_mc]
 pie_spolki_mc = [s for s, m in zip(spolki, maska_mc) if m]
 n_wyrzucone_mc = liczba_aktywow - sum(maska_mc)
 
-ax3.pie(pie_wagi_mc, labels=pie_spolki_mc, autopct='%1.1f%%', startangle=140,
-        textprops={'fontsize': 10})
+wedges3, texts3, autotexts3 = ax3.pie(
+    pie_wagi_mc, labels=pie_spolki_mc, autopct='%1.1f%%',
+    startangle=140, pctdistance=0.75, labeldistance=1.15,
+    textprops={'fontsize': 9}
+)
+for at in autotexts3:
+    at.set_fontsize(7)
 
 tytul_pie_mc = f'Portfel optymalny (Monte Carlo)\nSharpe = {wyniki_sharpe[najlepszy_indeks]:.3f}'
-ax3.set_title(tytul_pie_mc, fontsize=14)
+ax3.set_title(tytul_pie_mc, fontsize=13, pad=12)
 
 # --- WYKRES 4: Wykres Kolowy wag SLSQP (dolny prawy) ---
 ax4 = fig.add_subplot(gs[1, 2])
@@ -286,13 +296,18 @@ maska = wagi_opt > 0.001
 pie_wagi = wagi_opt[maska]
 pie_spolki = [s for s, m in zip(spolki, maska) if m]
 
-ax4.pie(pie_wagi, labels=pie_spolki, autopct='%1.1f%%', startangle=140,
-        textprops={'fontsize': 10})
+wedges4, texts4, autotexts4 = ax4.pie(
+    pie_wagi, labels=pie_spolki, autopct='%1.1f%%',
+    startangle=140, pctdistance=0.75, labeldistance=1.15,
+    textprops={'fontsize': 9}
+)
+for at in autotexts4:
+    at.set_fontsize(7)
 
 tytul_pie = f'Portfel optymalny (SLSQP)\n{n_wyrzucone} aktywow wyrzuconych przez KKT'
-ax4.set_title(tytul_pie, fontsize=14)
+ax4.set_title(tytul_pie, fontsize=13, pad=12)
 
-plt.tight_layout()
+plt.tight_layout(pad=2.0)
 
 nazwa_pliku = 'projekt_awad_dashboard.png'
 plt.savefig(nazwa_pliku, dpi=300, bbox_inches='tight', facecolor='white')
