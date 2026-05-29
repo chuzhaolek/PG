@@ -78,6 +78,13 @@ print(f"Oczekiwany zysk roczny: {najlepszy_zwrot * 100:.2f}%")
 print(f"Ryzyko (zmiennosc):     {najlepsze_ryzyko * 100:.2f}%")
 print(f"Wskaznik Sharpe'a:      {wyniki_sharpe[najlepszy_indeks]:.4f}")
 
+print("Wagi portfela Monte Carlo:")
+for t, wi in zip(spolki, najlepsze_wagi):
+    if wi < 1e-6:
+        print(f"    {t:>5s}: {wi * 100:>6.2f}%  << WYRZUCONE (KKT: gamma_i > 0, w_i = 0)")
+    else:
+        print(f"    {t:>5s}: {wi * 100:>6.2f}%  -- aktywne   (KKT: gamma_i = 0, w_i > 0)")
+
 
 # =========================================================
 # 4. OPTYMALIZACJA KWADRATOWA MARKOWITZA (SLSQP / KKT)
@@ -209,8 +216,8 @@ print(f"\n  SLSQP daje Sharpe wyzszy o {roznica:+.2f}% wzgledem MC.")
 # =========================================================
 print("\nGeneruje zbiorczy panel z wykresami (Dashboard)...")
 
-fig = plt.figure(figsize=(18, 14))
-gs = fig.add_gridspec(2, 2, height_ratios=[1.5, 1])
+fig = plt.figure(figsize=(22, 14))
+gs = fig.add_gridspec(2, 3, height_ratios=[1.5, 1])
 
 # --- WYKRES 1: Granica Efektywna (caly gorny wiersz) ---
 ax1 = fig.add_subplot(gs[0, :])
@@ -253,22 +260,37 @@ ax1.grid(True, linestyle='--', alpha=0.5)
 # --- WYKRES 2: Mapa Cieplna (dolny lewy) ---
 ax2 = fig.add_subplot(gs[1, 0])
 sns.heatmap(dzienne_zwroty.corr(), annot=True, cmap='coolwarm', fmt='.2f',
-            vmin=-1, vmax=1, ax=ax2, annot_kws={"size": 9})
+            vmin=-1, vmax=1, ax=ax2, annot_kws={"size": 8})
 ax2.set_title('Macierz Korelacji', fontsize=14)
 
-# --- WYKRES 3: Wykres Kolowy wag SLSQP (dolny prawy) ---
+# --- WYKRES 3: Wykres Kolowy wag Monte Carlo (dolny srodkowy) ---
 ax3 = fig.add_subplot(gs[1, 1])
+
+# Filtrujemy aktywa z waga > 0.1% (male wagi nie pokazujemy)
+maska_mc = najlepsze_wagi > 0.001
+pie_wagi_mc = najlepsze_wagi[maska_mc]
+pie_spolki_mc = [s for s, m in zip(spolki, maska_mc) if m]
+n_wyrzucone_mc = liczba_aktywow - sum(maska_mc)
+
+ax3.pie(pie_wagi_mc, labels=pie_spolki_mc, autopct='%1.1f%%', startangle=140,
+        textprops={'fontsize': 10})
+
+tytul_pie_mc = f'Portfel optymalny (Monte Carlo)\nSharpe = {wyniki_sharpe[najlepszy_indeks]:.3f}'
+ax3.set_title(tytul_pie_mc, fontsize=14)
+
+# --- WYKRES 4: Wykres Kolowy wag SLSQP (dolny prawy) ---
+ax4 = fig.add_subplot(gs[1, 2])
 
 # Filtrujemy aktywa z waga > 0.1% (wyrzucone przez KKT nie pokazujemy)
 maska = wagi_opt > 0.001
 pie_wagi = wagi_opt[maska]
 pie_spolki = [s for s, m in zip(spolki, maska) if m]
 
-ax3.pie(pie_wagi, labels=pie_spolki, autopct='%1.1f%%', startangle=140,
+ax4.pie(pie_wagi, labels=pie_spolki, autopct='%1.1f%%', startangle=140,
         textprops={'fontsize': 10})
 
 tytul_pie = f'Portfel optymalny (SLSQP)\n{n_wyrzucone} aktywow wyrzuconych przez KKT'
-ax3.set_title(tytul_pie, fontsize=14)
+ax4.set_title(tytul_pie, fontsize=14)
 
 plt.tight_layout()
 
